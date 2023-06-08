@@ -7,7 +7,7 @@ import (
 	"time"
 )
 
-const alphablet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const checkDigit = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func main() {
@@ -32,28 +32,44 @@ func getUserInput() int {
 }
 
 func genHKID() string {
-	// introduce time to get rid of deterministic behaviour of rand
+	// introduce time to get rid of deterministic behavior of rand
 	source := rand.NewSource(time.Now().UnixNano())
 	randomGen := rand.New(source)
 
 	var runeArr []string
-	countDownNum := 8
+
+	// random generator config
+	maxChar := 9
+	minChar := 8
+
+	totalChar := randomGen.Intn(maxChar-minChar+1) + minChar
 	checkSum := 0
 
-	for i := 0; i < 7; i++ {
+	totalLength := totalChar - 1
+	leadingAlphabetLength := totalChar - 7
+
+	for currentCharIndex := 0; currentCharIndex < totalLength; currentCharIndex++ {
 		var char string
-		if i == 0 {
-			char = string(alphablet[randomGen.Intn(len([]rune(alphablet)))])
+		if currentCharIndex < leadingAlphabetLength {
+			char = string(alphabet[randomGen.Intn(len([]rune(alphabet)))])
 		} else {
 			char = fmt.Sprint(randomGen.Intn(10))
 		}
 		runeArr = append(runeArr, char)
 
-		checkSum += countDownNum * strings.Index(checkDigit, string(char))
-		countDownNum--
+		if currentCharIndex == 0 {
+			if totalLength == 8 {
+				checkSum += 9 * strings.Index(checkDigit, string(char))
+			} else {
+				checkSum += 9 * 36
+				checkSum += (totalChar - currentCharIndex) * strings.Index(checkDigit, string(char))
+			}
+		} else {
+			checkSum += (totalChar - currentCharIndex) * strings.Index(checkDigit, string(char))
+		}
 	}
 
-	checkSum = (checkSum + 324) % 11
+	checkSum %= 11
 
 	lastDigit := "0"
 	if checkSum != 0 {
