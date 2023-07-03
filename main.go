@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"hkid/lib/crypto"
 	"math/rand"
 	"strings"
 	"time"
@@ -18,7 +19,16 @@ func main() {
 	}
 
 	for i := 0; i < genTime; i++ {
-		fmt.Println(genHKID())
+		// only for demo only, no hard code key and iv in prod
+		key := "12345678901234567890123456789012"
+		iv := "0000000000000000"
+		plainText := genHKID()
+		fmt.Println(plainText)
+		cipherText := crypto.AES256Encrypt(plainText, key, iv)
+		fmt.Printf("plainText: %v\n", plainText)
+		fmt.Printf("Result: %v\n", cipherText)
+		fmt.Printf("Decode Result: %v\n", crypto.AES256DecryptWithByte(cipherText, []byte(key), []byte(iv)))
+		fmt.Printf("Hashing Result: %v\n", crypto.SHA256HashingWithByte(cipherText))
 	}
 }
 
