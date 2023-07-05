@@ -5,14 +5,33 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"crypto/sha256"
+	"encoding/binary"
 	"encoding/hex"
 )
 
-func AES256Encrypt(plainText string, key string, iv string) []byte {
+func AES256Encrypt(plainText string, key string, iv string, blockSize uint) []byte {
+	if blockSize == 0 {
+		blockSize = aes.BlockSize
+	}
+	return BaseAES256Encrypt([]byte(plainText), []byte(key), []byte(iv), blockSize)
+}
 
-	plainTextBlock := PKCS5Padding([]byte(plainText), aes.BlockSize, len(plainText))
-	byteKey := []byte(key)
-	byteIV := []byte(iv)
+func AES256EncryptWithByteKey(plainText string, byteKey []byte, iv uint, blockSize uint) []byte {
+	if blockSize == 0 {
+		blockSize = aes.BlockSize
+	}
+
+	bIV := make([]byte, blockSize)
+	binary.LittleEndian.PutUint64(bIV, uint64(iv))
+
+	return BaseAES256Encrypt([]byte(plainText), byteKey, bIV, blockSize)
+}
+
+func BaseAES256Encrypt(plainText []byte, byteKey []byte, byteIV []byte, blockSize uint) []byte {
+	if blockSize <= 0 {
+		blockSize = aes.BlockSize
+	}
+	plainTextBlock := PKCS5Padding(plainText, int(blockSize), len(plainText))
 	block, err := aes.NewCipher(byteKey)
 
 	if err != nil {
