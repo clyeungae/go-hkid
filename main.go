@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"hkid/lib/crypto"
 	"math/rand"
@@ -18,25 +19,25 @@ func main() {
 		return
 	}
 
-	for i := 0; i < genTime; i++ {
-		// only for demo only, no hard code key and iv in prod
-		key := "12345678901234567890123456789012"
-		iv := "0000000000000000"
+	key, iv, blockSize := handleAESStructure()
+
+	for i := uint(0); i < genTime; i++ {
 		plainText := genHKID()
-		fmt.Println(plainText)
-		cipherText := crypto.AES256Encrypt(plainText, key, iv)
-		fmt.Printf("plainText: %v\n", plainText)
-		fmt.Printf("Result: %v\n", cipherText)
-		fmt.Printf("Decode Result: %v\n", crypto.AES256DecryptWithByte(cipherText, []byte(key), []byte(iv)))
-		fmt.Printf("Hashing Result: %v\n", crypto.SHA256HashingWithByte(cipherText))
+		cipherText := crypto.AES256EncryptWithByteKey(plainText, key, iv, blockSize)
+		hashedText := crypto.SHA256HashingWithByte(cipherText)
+		fmt.Printf("%v %v\n", plainText, hashedText)
 	}
 }
 
-func getUserInput() int {
-	var genTime int
+func getUserInput() uint {
+	var genTime uint
 
 	fmt.Println("Enter how many HKID you want")
-	fmt.Scan(&genTime)
+	fmt.Scanln(&genTime)
+
+	if genTime == 0 {
+		return 10
+	}
 
 	return genTime
 }
@@ -96,4 +97,46 @@ func joinString(strs []string) string {
 		strBuilder.WriteString(r)
 	}
 	return strBuilder.String()
+}
+
+func hexToByte(hex string) []byte {
+	var byteBuilder bytes.Buffer
+
+	for i := 0; i < len(hex)/2; i++ {
+		byteBuilder.Write([]byte(hex[i*2 : i*2+1]))
+	}
+	return byteBuilder.Bytes()
+}
+
+func handleAESStructure() ([]byte, uint, uint) {
+	// only for demo only, no hard code key and iv in prod
+	key := "12345678901234567890123456789012"
+
+	var blockSize uint
+	var iv uint
+	var iKey string
+	var bKey []byte
+
+	fmt.Println("Enter AES Key")
+	fmt.Scanln(&iKey)
+
+	if len(iKey) > 0 {
+		key = iKey
+	}
+
+	switch len(key) {
+	case 16, 24, 32:
+		bKey = []byte(key)
+		break
+	default:
+		bKey = hexToByte(key)
+	}
+
+	fmt.Println("Enter AES Block Size")
+	fmt.Scanln(&blockSize)
+
+	fmt.Println("Enter AES IV")
+	fmt.Scanln(&iv)
+
+	return bKey, iv, blockSize
 }
