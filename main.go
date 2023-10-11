@@ -5,44 +5,75 @@ import (
 	"fmt"
 	"hkid/lib/crypto"
 	"math/rand"
+	"regexp"
 	"strings"
 	"time"
+
+	"golang.org/x/exp/slices"
 )
 
 const alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const checkDigit = "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
 func main() {
-	genTime := getUserInput()
+	genTime, prefix, needAES := getUserInput()
 
-	if genTime <= 0 {
-		return
+	var key []byte
+	var iv uint
+	var blockSize uint
+	if needAES {
+		key, iv, blockSize = handleAESStructure()
 	}
 
-	key, iv, blockSize := handleAESStructure()
-
 	for i := uint(0); i < genTime; i++ {
-		plainText := genHKID()
-		cipherText := crypto.AES256EncryptWithByteKey(plainText, key, iv, blockSize)
-		hashedText := crypto.SHA256HashingWithByte(cipherText)
+		plainText := genHKID(prefix)
+
+		hashedText := ""
+		if needAES {
+			cipherText := crypto.AES256EncryptWithByteKey(plainText, key, iv, blockSize)
+			hashedText = crypto.SHA256HashingWithByte(cipherText)
+		}
 		fmt.Printf("%v %v\n", plainText, hashedText)
 	}
 }
 
-func getUserInput() uint {
+func getUserInput() (uint, string, bool) {
 	var genTime uint
+	var prefix string
+	var needAES bool
 
 	fmt.Println("Enter how many HKID you want")
 	fmt.Scanln(&genTime)
 
-	if genTime == 0 {
-		return 10
+	if genTime <= 0 {
+		genTime = 10
 	}
 
-	return genTime
+	var iPrefix string
+	fmt.Println("Please specific a prefix (1 - 2 char)")
+	fmt.Scanln(&iPrefix)
+
+	// format checking
+	re := regexp.MustCompile(`^[a-zA-Z]+$`)
+	if !re.MatchString(iPrefix) {
+		prefix = ""
+	} else if len(prefix) > 2 {
+		prefix = prefix[:2]
+	} else {
+		prefix = iPrefix
+	}
+
+	var iAES string
+	fmt.Println("Do you need generate AES? (y/n)")
+	fmt.Scanln(&iAES)
+
+	yes := []string{"y", "yes"}
+	needAES = slices.Contains(yes, iAES)
+
+	return genTime, strings.ToUpper(prefix), needAES
 }
 
-func genHKID() string {
+func genHKID(prefix string) string {
 	// introduce time to get rid of deterministic behavior of rand
 	source := rand.NewSource(time.Now().UnixNano())
 	randomGen := rand.New(source)
@@ -53,7 +84,16 @@ func genHKID() string {
 	maxChar := 9
 	minChar := 8
 
-	totalChar := randomGen.Intn(maxChar-minChar+1) + minChar
+	var totalChar int
+	switch len(prefix) {
+	case 2:
+		totalChar = maxChar
+	case 1:
+		totalChar = minChar
+	default:
+		totalChar = randomGen.Intn(maxChar-minChar+1) + minChar
+	}
+
 	checkSum := 0
 
 	totalLength := totalChar - 1
@@ -62,7 +102,17 @@ func genHKID() string {
 	for currentCharIndex := 0; currentCharIndex < totalLength; currentCharIndex++ {
 		var char string
 		if currentCharIndex < leadingAlphabetLength {
-			char = string(alphabet[randomGen.Intn(len([]rune(alphabet)))])
+			switch len(prefix) {
+			case 2:
+				char = prefix[:1]
+				prefix = prefix[1:2]
+			case 1:
+				char = prefix
+				prefix = ""
+			default:
+				char = string(alphabet[randomGen.Intn(len([]rune(alphabet)))])
+			}
+
 		} else {
 			char = fmt.Sprint(randomGen.Intn(10))
 		}
